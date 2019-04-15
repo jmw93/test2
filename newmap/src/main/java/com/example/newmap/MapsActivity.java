@@ -1,19 +1,12 @@
 package com.example.newmap;
 
-import android.Manifest;
-import android.app.Activity;
-import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.location.Location;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
-import android.util.Log;
+import android.os.StrictMode;
+import android.support.v4.app.FragmentActivity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
@@ -25,9 +18,9 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.Marker;
-import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.android.gms.tasks.OnSuccessListener;
+
+import javax.mail.MessagingException;
+import javax.mail.SendFailedException;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
 
@@ -39,55 +32,73 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_maps);
-        Button button = findViewById(R.id.button);
+                super.onCreate(savedInstanceState);
+                setContentView(R.layout.activity_maps);
+                StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
+                        .permitDiskReads()
+                        .permitDiskWrites()
+                        .permitNetwork().build());
+
+                Button button2 = findViewById(R.id.button2);
+                button2.setOnClickListener(new View.OnClickListener() {
+                    @Override
+            public void onClick(View v) {
+                stopLocationUpdates();
+            }
+        });
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager() .findFragmentById(R.id.map);
-        textView= findViewById(R.id.textView);
         mapFragment.getMapAsync(this);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         mLocationCallback = new LocationCallback() {
+
             @Override
             public void onLocationResult(LocationResult locationResult) {
                 if(locationResult !=null) {
-                    for(Location location : locationResult.getLocations()) {
-                        Toast.makeText(MapsActivity.this,"위치갱신됨",Toast.LENGTH_LONG).show();
-                        textView.append("경도:"+location.getLatitude()+"위도:"+location.getLongitude());
+                    for(final Location location : locationResult.getLocations()) {
+                        final double Latitude =location.getLatitude();
+                        final double Longitude=location.getLongitude();
                         LatLng currentLocation =new LatLng(location.getLatitude(), location.getLongitude());
                         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation,15.0f));
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+
+                                    GMailSender gMailSender = new GMailSender("sae1013@gmail.com", "sae563365");
+
+                                    //GMailSender.sendMail(제목, 본문내용, 받는사람);
+
+                                    gMailSender.sendMail("현재위치테스트", "위도:"+Latitude+"경도:"+Longitude ,"jmw93@naver.com");
+
+
+
+                                } catch (SendFailedException e) {
+
+                                    e.printStackTrace();
+
+                                } catch (MessagingException e) {
+
+                                    e.printStackTrace();
+                                } catch (Exception e) {
+
+                                    e.printStackTrace();
+
+                                }
+                            }
+                        }).start();
+
+
                     }
                 }
             }
         };
 
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (ActivityCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(MapsActivity.this,
-                            new String[] {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},requstCode);
-                    return;
-                }
 
-
-            }
-
-
-        });
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        switch (requestCode) {
-            case requstCode:
-                if (ActivityCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    Toast.makeText(MapsActivity.this, "권한없음", Toast.LENGTH_LONG).show();
 
-                }
-        }
-    }
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
@@ -102,32 +113,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 mLocationCallback,
                 null);
 
-        mFusedLocationClient.getLastLocation().addOnSuccessListener(MapsActivity.this, new OnSuccessListener<Location>() {
-            @Override
-            public void onSuccess(Location location) {
-                if(location !=null){
-                    LatLng mylocation = new LatLng(location.getLatitude(),location.getLongitude());
-                    mMap.addMarker(new MarkerOptions().position(mylocation).title("내위치"));
-                    mMap.moveCamera(CameraUpdateFactory.newLatLng(mylocation));
-                    mMap.animateCamera(CameraUpdateFactory.zoomTo(15.0f));
-                    Log.d("map","초기위치 리스너 호출은되었으나 화면상표시안됨");
 
 
-
-                }else{
-                    Log.d("map","객체없음");
-                }
-            }
-        });
-
-        mMap.setOnInfoWindowClickListener(new GoogleMap.OnInfoWindowClickListener() {
-            @Override
-            public void onInfoWindowClick(Marker marker) {
-                Log.d("gmap:","클릭됨");
-                Toast.makeText(getApplicationContext(),"선릉선택됨",Toast.LENGTH_LONG).show();
-
-            }
-        });
     }
 
     private void stopLocationUpdates() {
